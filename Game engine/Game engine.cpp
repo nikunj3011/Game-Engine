@@ -1,55 +1,96 @@
-// Game engine.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
-#define _CRT_SECURE_NO_WARNINGS
-#include <iostream>
-#include "glad/include/glad/glad.h"
+#include "include/glad/glad.h"
 #include "include/GLFW/glfw3.h"
-#define _CRT_SECURE_NO_WARNINGS
+#include <cmath>
+#include <vector>
+#include <iostream>
+
+// Vertex Shader
+const char* vertexShaderSource = R"(
+#version 330 core
+layout(location = 0) in vec3 aPos;
+void main() {
+    gl_Position = vec4(aPos, 1.0);
+}
+)";
+
+// Fragment Shader
+const char* fragmentShaderSource = R"(
+#version 330 core
+out vec4 FragColor;
+void main() {
+    FragColor = vec4(1.0, 0.5, 0.2, 1.0);
+}
+)";
+
+// Generate circle vertices
+std::vector<float> generateCircle(float cx, float cy, float r, int segments) {
+    std::vector<float> verts;
+    verts.push_back(cx); verts.push_back(cy); verts.push_back(0.0f); // center
+    for (int i = 0; i <= segments; ++i) {
+        float angle = 2.0f * 3.14159265358979323846 * i / segments;
+        verts.push_back(cx + r * cos(angle));
+        verts.push_back(cy + r * sin(angle));
+        verts.push_back(0.0f);
+    }
+    return verts;
+}
 
 int main() {
-    std::cout << "Initializing engine..." << std::endl;
-
-    // Initialize GLFW and OpenGL
-    if (!glfwInit()) {
-        std::cerr << "GLFW init failed!" << std::endl;
-        return -1;
-    }
-
-    GLFWwindow* window = glfwCreateWindow(800, 600, "My Engine", nullptr, nullptr);
-    if (!window) {
-        std::cerr << "Window creation failed!" << std::endl;
-        glfwTerminate();
-        return -1;
-    }
-
+    glfwInit();
+    GLFWwindow* window = glfwCreateWindow(800, 600, "Moving Circle", nullptr, nullptr);
     glfwMakeContextCurrent(window);
-    std::cout << "Window created successfully." << std::endl;
+    gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
-    // Game loop
+    // Compile shaders
+    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
+    glCompileShader(vertexShader);
+
+    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
+    glCompileShader(fragmentShader);
+
+    GLuint shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+    glUseProgram(shaderProgram);
+
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    // Setup VAO/VBO
+    GLuint VAO, VBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    // Main loop
     while (!glfwWindowShouldClose(window)) {
-        std::cout << "Frame start..." << std::endl;
+        float time = glfwGetTime();
+        float x = 0.5f * sin(time);
+        float y = 0.0f;
+        float radius = 0.2f;
 
-        // Input, update, render
+        std::vector<float> circle = generateCircle(x, y, radius, 50);
+        glBufferData(GL_ARRAY_BUFFER, circle.size() * sizeof(float), circle.data(), GL_DYNAMIC_DRAW);
+
+        glClearColor(0.1f, 0.1f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+
+        glUseProgram(shaderProgram);
+        glBindVertexArray(VAO);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, circle.size() / 3);
+
         glfwSwapBuffers(window);
         glfwPollEvents();
-
-        std::cout << "Frame end." << std::endl;
     }
 
     glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
 }
-
-
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
